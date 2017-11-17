@@ -6,24 +6,40 @@ Simple Go library for in-memory data storage with file persistence.
 ### adding an item
 
 ```go
-type User struct {
-    Name string 
-}
+// id can be used to access the item later 
+id := users.Add(&User{"karl"})
+```
 
-// implementing store.Item interface
-func (u *User) EncodeJson() []byte {
-    ...
-}
+### getting an item
 
-func main() {
-    var users *store.Store
-    users = store.NewStore("users.db")
-    
-    var id int 
-    id = users.Add(&Users{"karl"})
-    
-    users.Read(func(items []store.Items) {
-        println(items[id].(*User).Name) // will output "karl"
-    })
-}
+```go
+var user &User
+
+users.Read(func(items []store.Item) error {
+    user = items[id].(*User)
+})
+```
+
+### json representation of store
+
+```go
+var data []byte = users.EncodeJson()
+```
+
+### write store to file
+
+```go
+users := store.NewStore("users.db")
+
+err := users.EncodeFile() // writes to 'users.db' file
+```
+
+### read store from file
+
+```go
+gob.RegisterName("main.User", &User{})
+
+users := store.NewStore("users.db")
+
+err := users.DecodeFile() // reads from 'users.db' file
 ```
