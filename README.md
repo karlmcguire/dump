@@ -15,8 +15,16 @@ var id int = users.Add(&User{"karl"})
 ```go
 var user &User
 
-users.Read(func(items []store.Item) error {
+users.Read(func(items []store.Item) {
     user = items[id].(*User)
+})
+```
+
+### updating an item
+
+```go
+var err error = users.Write(func(items []store.Item) error {
+    items[id].(*User).Name = "joe"
 })
 ```
 
@@ -29,20 +37,21 @@ var data []byte = users.EncodeJson()
 ### write store to file
 
 ```go
-users := store.NewStore("users.db")
+var users *store.Store = store.NewStore("users.db")
 
 gob.RegisterName("main.User", &User{})
 
-users.EncodeFile() // writes to 'users.db' file
+// writes to 'users.db' file
+users.EncodeFile()
 ```
 
 ### read store from file
 
 ```go
-
-users := store.NewStore("users.db")
+var users *store.Store = store.NewStore("users.db")
 
 gob.RegisterName("main.User", &User{})
 
-users.DecodeFile() // reads from 'users.db' file
+// reads from 'users.db' file
+users.DecodeFile()
 ```
