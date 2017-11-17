@@ -7,7 +7,7 @@ Simple Go library for in-memory data storage with file persistence.
 
 ```go
 // id can be used to access the item later 
-id := users.Add(&User{"karl"})
+var id int = users.Add(&User{"karl"})
 ```
 
 ### getting an item
@@ -31,15 +31,18 @@ var data []byte = users.EncodeJson()
 ```go
 users := store.NewStore("users.db")
 
-err := users.EncodeFile() // writes to 'users.db' file
+gob.RegisterName("main.User", &User{})
+
+users.EncodeFile() // writes to 'users.db' file
 ```
 
 ### read store from file
 
 ```go
-gob.RegisterName("main.User", &User{})
 
 users := store.NewStore("users.db")
 
-err := users.DecodeFile() // reads from 'users.db' file
+gob.RegisterName("main.User", &User{})
+
+users.DecodeFile() // reads from 'users.db' file
 ```
