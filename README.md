@@ -10,15 +10,18 @@ type User struct {
     Name string 
 }
 
+// implementing store.Item interface
 func (u *User) EncodeJson() []byte {
     ...
 }
 
 func main() {
-    users := store.NewStore("users.db")
-
-    id := users.Add(&User{"karl"})
-
+    var users *store.Store
+    users = store.NewStore("users.db")
+    
+    var id int 
+    id = users.Add(&Users{"karl"})
+    
     users.Read(func(items []store.Items) {
         println(items[id].(*User).Name) // will output "karl"
     })
