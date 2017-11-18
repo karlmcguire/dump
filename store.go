@@ -221,10 +221,15 @@ func (s *Store) Update(f func(items []Item) error) error {
 	return nil
 }
 
-// View is used to read an item (or items) in the store.
-func (s *Store) View(f func(items []Item)) {
+// View is used to read an item (or items) in the store. It returns an error
+// if there is an error inside the f function.
+func (s *Store) View(f func(items []Item) error) error {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
-	f(s.items)
+	if err := f(s.items); err != nil {
+		return err
+	}
+
+	return nil
 }

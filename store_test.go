@@ -121,11 +121,16 @@ func TestView(t *testing.T) {
 
 	id, _ := test.Add(&Blob{"hi"})
 
-	test.View(func(items []Item) {
+	err := test.View(func(items []Item) error {
 		if items[id].(*Blob).Data != "hi" {
 			t.Fatal("something is very wrong")
 		}
+
+		return errors.New("test")
 	})
+	if err.Error() != "test" {
+		t.Fatal("problem with view errors")
+	}
 }
 
 func TestUpdate(t *testing.T) {
@@ -150,11 +155,15 @@ func TestUpdate(t *testing.T) {
 		t.Fatal("update error catch")
 	}
 
-	test.View(func(items []Item) {
+	err = test.View(func(items []Item) error {
 		if items[id].(*Blob).Data != "new" {
 			t.Fatal("update didn't save")
 		}
+		return nil
 	})
+	if err != nil {
+		t.Fatal("update didn't save")
+	}
 
 	another, _ := NewStore("test.db", PERSIST_MANUAL, Type{"store.Blob", &Blob{}})
 	id, _ = another.Add(&Blob{"hi"})
@@ -187,11 +196,14 @@ func TestLoad(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	other.View(func(items []Item) {
+	if err := other.View(func(items []Item) error {
 		if items[id].(*Blob).Data != "hi" {
 			t.Fatal("load error")
 		}
-	})
+		return nil
+	}); err != nil {
+		t.Fatal("load error")
+	}
 
 	another, err := NewStore("missing.db", PERSIST_MANUAL, Type{"store.Blob", &Blob{}})
 	if err != nil {
