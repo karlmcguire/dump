@@ -1,5 +1,5 @@
 // Package store manages a list of items in memory with concurrency-safe
-// functions for accessing and manipulating items.
+// functions for accessing and manipulating them.
 package store
 
 import (
@@ -29,6 +29,13 @@ var (
 	// ErrInvalidPersist is thrown when an invalid disk-persistence setting is
 	// provided when calling NewStore().
 	ErrInvalidPersist = errors.New("invalid persist type")
+	// ErrInvalidTypes is thrown when no types are listed when calling
+	// NewStore(). Without type definitions it is impossible to persist on disk
+	// without possible data loss.
+	ErrInvalidTypes = errors.New("no types were provided")
+	// ErrInvalidFilename is thrown when NewStore() is called with an empty
+	// filename - making persistence impossible.
+	ErrInvalidFilename = errors.New("invalid filename")
 )
 
 // Store represents a collection of items that persist on disk.
@@ -52,13 +59,21 @@ type Type struct {
 }
 
 // NewStore is the primary constructor function for creating stores. The
-// provided filename is where the store will persist to disk (or read from
+// provided filename is where the store will persist to disk (and read from
 // disk). The persist int is one of the store.PERSIST_ constants. The provided
 // types register the types that will be held in the store.
 //
 // NewStore will return an error if the persist parameter is not a valid
 // store.PERSIST_ constant.
 func NewStore(filename string, persist int, types ...Type) (*Store, error) {
+	if len(filename) == 0 {
+		return nil, ErrInvalidFilename
+	}
+
+	if len(types) == 0 {
+		return nil, ErrInvalidTypes
+	}
+
 	for _, t := range types {
 		gob.RegisterName(t.Name, t.Value)
 	}
