@@ -2,6 +2,8 @@ package store
 
 import (
 	"bytes"
+	"errors"
+	"os"
 	"testing"
 	"time"
 )
@@ -73,13 +75,130 @@ func (b *Blob) MarshalJSON() ([]byte, error) {
 	buffer.WriteString(b.Data)
 	buffer.WriteString(`"}`)
 
+	if b.Data == "bad" {
+		return nil, errors.New("bad test")
+	}
+
 	return buffer.Bytes(), nil
 }
 
 func TestPersistInterval(t *testing.T) {
-	test, _ := NewStore("test.db", PERSIST_INTERVAL, Type{"store.Blob", &Blob{}})
+	test, _ := NewStore("persist.db", PERSIST_INTERVAL, Type{"store.Blob", &Blob{}})
 
 	_, _ = test.Add(&Blob{"meh"})
 
+	os.Chmod("persist.db", 0444)
+
 	time.Sleep(time.Second * 70)
+}
+
+func TestAdd(t *testing.T) {
+	test, _ := NewStore("test.db", PERSIST_WRITES, Type{"store.Blob", &Blob{}})
+
+	_, _ = test.Add(&Blob{"meh"})
+}
+
+func TestMarshalJSON(t *testing.T) {
+	test, _ := NewStore("test.db", PERSIST_WRITES, Type{"store.Blob", &Blob{}})
+
+	_, _ = test.Add(&Blob{"meh"})
+
+	data, _ := test.MarshalJSON()
+
+	if !bytes.Equal(data, []byte(`[{"data":"meh"}]`)) {
+		t.Fatal("bad json encoding")
+	}
+
+	_, _ = test.Add(&Blob{"bad"})
+
+	if _, err := test.MarshalJSON(); err == nil {
+		t.Fatal("not handling marshal errors")
+	}
+}
+
+func TestView(t *testing.T) {
+	test, _ := NewStore("test.db", PERSIST_WRITES, Type{"store.Blob", &Blob{}})
+
+	id, _ := test.Add(&Blob{"hi"})
+
+	test.View(func(items []Item) {
+		if items[id].(*Blob).Data != "hi" {
+			t.Fatal("something is very wrong")
+		}
+	})
+}
+
+func TestUpdate(t *testing.T) {
+	test, _ := NewStore("test.db", PERSIST_WRITES, Type{"store.Blob", &Blob{}})
+
+	id, _ := test.Add(&Blob{"hi"})
+
+	err := test.Update(func(items []Item) error {
+		items[id].(*Blob).Data = "new"
+		return nil
+	})
+	if err != nil {
+		t.Fatal("problem updating")
+	}
+
+	var testErr = errors.New("example error")
+
+	err = test.Update(func(items []Item) error {
+		return testErr
+	})
+	if err != testErr {
+		t.Fatal("update error catch")
+	}
+
+	test.View(func(items []Item) {
+		if items[id].(*Blob).Data != "new" {
+			t.Fatal("update didn't save")
+		}
+	})
+
+	another, _ := NewStore("test.db", PERSIST_MANUAL, Type{"store.Blob", &Blob{}})
+	id, _ = another.Add(&Blob{"hi"})
+	err = another.Update(func(items []Item) error {
+		items[id].(*Blob).Data = "new"
+		return nil
+	})
+	if err != nil {
+		t.Fatal("problem updating")
+	}
+}
+
+func TestLoad(t *testing.T) {
+	test, err := NewStore("test.db", PERSIST_WRITES, Type{"store.Blob", &Blob{}})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	id, err := test.Add(&Blob{"hi"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	other, err := NewStore("test.db", PERSIST_MANUAL, Type{"store.Blob", &Blob{}})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err = other.Load(); err != nil {
+		t.Fatal(err)
+	}
+
+	other.View(func(items []Item) {
+		if items[id].(*Blob).Data != "hi" {
+			t.Fatal("load error")
+		}
+	})
+
+	another, err := NewStore("missing.db", PERSIST_MANUAL, Type{"store.Blob", &Blob{}})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err = another.Load(); err == nil {
+		t.Fatal("didn't throw io error")
+	}
 }

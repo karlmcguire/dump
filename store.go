@@ -29,10 +29,12 @@ var (
 	// ErrInvalidPersist is thrown when an invalid disk-persistence setting is
 	// provided when calling NewStore().
 	ErrInvalidPersist = errors.New("invalid persist type")
+
 	// ErrInvalidTypes is thrown when no types are listed when calling
 	// NewStore(). Without type definitions it is impossible to persist on disk
 	// without possible data loss.
 	ErrInvalidTypes = errors.New("no types were provided")
+
 	// ErrInvalidFilename is thrown when NewStore() is called with an empty
 	// filename - making persistence impossible.
 	ErrInvalidFilename = errors.New("invalid filename")
@@ -53,6 +55,7 @@ type Type struct {
 	// "package.Name" -- so for a struct User{} in package main this field
 	// would be "main.User".
 	Name string
+
 	// Value is an empty struct of this type. For a struct User{}, this would
 	// be User{}.
 	Value interface{}
@@ -108,14 +111,9 @@ func (s *Store) persistInterval() {
 	for {
 		time.Sleep(time.Second * 60)
 
-		println("writing")
-
-		s.mutex.Lock()
 		if err := s.Save(); err != nil {
-			s.mutex.Unlock()
-			panic(err)
+			println(err.Error())
 		}
-		s.mutex.Unlock()
 	}
 }
 
