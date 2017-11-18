@@ -25,6 +25,7 @@ users.Read(func(items []store.Item) {
 ```go
 var err error = users.Write(func(items []store.Item) error {
     items[id].(*User).Name = "joe"
+    return nil
 })
 ```
 
@@ -42,7 +43,7 @@ var users *store.Store = store.NewStore("users.db")
 gob.RegisterName("main.User", &User{})
 
 // writes to 'users.db' file
-users.EncodeFile()
+var err error = users.EncodeFile()
 ```
 
 ### read store from file
@@ -53,5 +54,5 @@ var users *store.Store = store.NewStore("users.db")
 gob.RegisterName("main.User", &User{})
 
 // reads from 'users.db' file
-users.DecodeFile()
+var err error = users.DecodeFile()
 ```
