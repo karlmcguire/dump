@@ -19,12 +19,11 @@ var (
 	ErrInvalidPersist = errors.New("invalid persist type")
 )
 
-type store struct {
-	sync.RWMutex
-
+type Store struct {
 	filename string
 	items    []Item
 	persist  int
+	mutex    sync.RWMutex
 }
 
 type Type struct {
@@ -32,7 +31,7 @@ type Type struct {
 	Value interface{}
 }
 
-func NewStore(filename string, persist int, types ...Type) (*store, error) {
+func NewStore(filename string, persist int, types ...Type) (*Store, error) {
 	for _, t := range types {
 		gob.RegisterName(t.Name, t.Value)
 	}
@@ -43,10 +42,11 @@ func NewStore(filename string, persist int, types ...Type) (*store, error) {
 		return nil, ErrInvalidPersist
 	}
 
-	store := &store{
+	store := &Store{
 		filename: filename,
 		items:    make([]Item, 0),
 		persist:  persist,
+		mutex:    sync.RWMutex{},
 	}
 
 	if persist == PERSIST_INTERVAL {
@@ -60,35 +60,39 @@ type Item interface {
 	MarshalJSON() ([]byte, error)
 }
 
-func (s *store) persistInterval() {
+func (s *Store) persistInterval() {
 	for {
 		time.Sleep(time.Second * 60)
 
 		println("writing")
 
-		s.Lock()
+		s.mutex.Lock()
 		if err := s.Save(); err != nil {
-			s.Unlock()
+			s.mutex.Unlock()
 			panic(err)
 		}
-		s.Unlock()
+		s.mutex.Unlock()
 	}
 }
 
-func (s *store) Add(item Item) (int, error) {
-	s.Lock()
-	defer s.Unlock()
+func (s *Store) Add(item Item) (int, error) {
+	s.mutex.Lock()
 
 	s.items = append(s.items, item)
 
 	if s.persist == PERSIST_WRITES {
+		s.mutex.Unlock()
 		return len(s.items) - 1, s.Save()
 	}
 
+	s.mutex.Unlock()
 	return len(s.items) - 1, nil
 }
 
-func (s *store) MarshalJSON() ([]byte, error) {
+func (s *Store) MarshalJSON() ([]byte, error) {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
 	var buffer bytes.Buffer
 
 	buffer.WriteString(`[`)
@@ -107,7 +111,10 @@ func (s *store) MarshalJSON() ([]byte, error) {
 	return buffer.Bytes(), nil
 }
 
-func (s *store) encodeGob() []byte {
+func (s *Store) encodeGob() []byte {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
 	var buffer bytes.Buffer
 
 	gob.NewEncoder(&buffer).Encode(s.items)
@@ -115,45 +122,54 @@ func (s *store) encodeGob() []byte {
 	return buffer.Bytes()
 }
 
-func (s *store) decodeGob(data []byte) error {
+func (s *Store) decodeGob(data []byte) error {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
 	return gob.NewDecoder(bytes.NewBuffer(data)).Decode(&s.items)
 }
 
-func (s *store) Save() error {
+func (s *Store) Save() error {
 	return ioutil.WriteFile(s.filename, s.encodeGob(), 0644)
 }
 
-func (s *store) Load() error {
+func (s *Store) Load() error {
+	s.mutex.Lock()
+
 	var (
 		data []byte
 		err  error
 	)
 
 	if data, err = ioutil.ReadFile(s.filename); err != nil {
+		s.mutex.Unlock()
 		return err
 	}
 
+	s.mutex.Unlock()
 	return s.decodeGob(data)
 }
 
-func (s *store) Update(f func(items []Item) error) error {
-	s.Lock()
-	defer s.Unlock()
+func (s *Store) Update(f func(items []Item) error) error {
+	s.mutex.Lock()
 
 	if err := f(s.items); err != nil {
+		s.mutex.Unlock()
 		return err
 	}
 
 	if s.persist == PERSIST_WRITES {
+		s.mutex.Unlock()
 		return s.Save()
 	}
 
+	s.mutex.Unlock()
 	return nil
 }
 
-func (s *store) View(f func(items []Item)) {
-	s.RLock()
-	defer s.RUnlock()
+func (s *Store) View(f func(items []Item)) {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
 
 	f(s.items)
 }
