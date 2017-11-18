@@ -3,8 +3,20 @@ package store
 import (
 	"bytes"
 	"encoding/gob"
+	"errors"
 	"io/ioutil"
 	"sync"
+	"time"
+)
+
+const (
+	MANUAL = iota
+	WRITES
+	INTERVAL
+)
+
+var (
+	ErrInvalidPersist = errors.New("invalid persist type")
 )
 
 type Store struct {
@@ -12,6 +24,7 @@ type Store struct {
 
 	filename string
 	items    []Item
+	persist  int
 }
 
 type Type struct {
@@ -19,28 +32,58 @@ type Type struct {
 	Value interface{}
 }
 
-func NewStore(filename string, types ...Type) *Store {
+func NewStore(filename string, persist int, types ...Type) (*Store, error) {
 	for _, t := range types {
 		gob.RegisterName(t.Name, t.Value)
 	}
 
-	return &Store{
+	if persist != MANUAL && persist != WRITES && persist != INTERVAL {
+		return nil, ErrInvalidPersist
+	}
+
+	store := &Store{
 		filename: filename,
 		items:    make([]Item, 0),
+		persist:  persist,
 	}
+
+	if persist == INTERVAL {
+		go store.persistInterval()
+	}
+
+	return store, nil
 }
 
 type Item interface {
 	EncodeJson() []byte
 }
 
-func (s *Store) Add(item Item) int {
+func (s *Store) persistInterval() {
+	for {
+		time.Sleep(time.Second * 60)
+
+		println("writing")
+
+		s.Lock()
+		if err := s.EncodeFile(); err != nil {
+			s.Unlock()
+			panic(err)
+		}
+		s.Unlock()
+	}
+}
+
+func (s *Store) Add(item Item) (int, error) {
 	s.Lock()
 	defer s.Unlock()
 
 	s.items = append(s.items, item)
 
-	return len(s.items) - 1
+	if s.persist == WRITES {
+		return len(s.items) - 1, s.EncodeFile()
+	}
+
+	return len(s.items) - 1, nil
 }
 
 func (s *Store) EncodeJson() []byte {
@@ -91,7 +134,15 @@ func (s *Store) Write(f func(items []Item) error) error {
 	s.Lock()
 	defer s.Unlock()
 
-	return f(s.items)
+	if err := f(s.items); err != nil {
+		return err
+	}
+
+	if s.persist == WRITES {
+		return s.EncodeFile()
+	}
+
+	return nil
 }
 
 func (s *Store) Read(f func(items []Item)) {
