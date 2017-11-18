@@ -10,16 +10,16 @@ import (
 )
 
 const (
-	MANUAL = iota
-	WRITES
-	INTERVAL
+	PERSIST_MANUAL = iota
+	PERSIST_WRITES
+	PERSIST_INTERVAL
 )
 
 var (
 	ErrInvalidPersist = errors.New("invalid persist type")
 )
 
-type Store struct {
+type store struct {
 	sync.RWMutex
 
 	filename string
@@ -32,22 +32,24 @@ type Type struct {
 	Value interface{}
 }
 
-func NewStore(filename string, persist int, types ...Type) (*Store, error) {
+func NewStore(filename string, persist int, types ...Type) (*store, error) {
 	for _, t := range types {
 		gob.RegisterName(t.Name, t.Value)
 	}
 
-	if persist != MANUAL && persist != WRITES && persist != INTERVAL {
+	if persist != PERSIST_MANUAL &&
+		persist != PERSIST_WRITES &&
+		persist != PERSIST_INTERVAL {
 		return nil, ErrInvalidPersist
 	}
 
-	store := &Store{
+	store := &store{
 		filename: filename,
 		items:    make([]Item, 0),
 		persist:  persist,
 	}
 
-	if persist == INTERVAL {
+	if persist == PERSIST_INTERVAL {
 		go store.persistInterval()
 	}
 
@@ -55,17 +57,17 @@ func NewStore(filename string, persist int, types ...Type) (*Store, error) {
 }
 
 type Item interface {
-	EncodeJson() []byte
+	MarshalJSON() ([]byte, error)
 }
 
-func (s *Store) persistInterval() {
+func (s *store) persistInterval() {
 	for {
 		time.Sleep(time.Second * 60)
 
 		println("writing")
 
 		s.Lock()
-		if err := s.EncodeFile(); err != nil {
+		if err := s.Save(); err != nil {
 			s.Unlock()
 			panic(err)
 		}
@@ -73,35 +75,39 @@ func (s *Store) persistInterval() {
 	}
 }
 
-func (s *Store) Add(item Item) (int, error) {
+func (s *store) Add(item Item) (int, error) {
 	s.Lock()
 	defer s.Unlock()
 
 	s.items = append(s.items, item)
 
-	if s.persist == WRITES {
-		return len(s.items) - 1, s.EncodeFile()
+	if s.persist == PERSIST_WRITES {
+		return len(s.items) - 1, s.Save()
 	}
 
 	return len(s.items) - 1, nil
 }
 
-func (s *Store) EncodeJson() []byte {
+func (s *store) MarshalJSON() ([]byte, error) {
 	var buffer bytes.Buffer
 
 	buffer.WriteString(`[`)
 	for i, item := range s.items {
-		buffer.Write(item.EncodeJson())
+		d, err := item.MarshalJSON()
+		if err != nil {
+			return nil, err
+		}
+		buffer.Write(d)
 		if i != len(s.items)-1 {
 			buffer.WriteString(`,`)
 		}
 	}
 	buffer.WriteString(`]`)
 
-	return buffer.Bytes()
+	return buffer.Bytes(), nil
 }
 
-func (s *Store) encodeGob() []byte {
+func (s *store) encodeGob() []byte {
 	var buffer bytes.Buffer
 
 	gob.NewEncoder(&buffer).Encode(s.items)
@@ -109,15 +115,15 @@ func (s *Store) encodeGob() []byte {
 	return buffer.Bytes()
 }
 
-func (s *Store) decodeGob(data []byte) error {
+func (s *store) decodeGob(data []byte) error {
 	return gob.NewDecoder(bytes.NewBuffer(data)).Decode(&s.items)
 }
 
-func (s *Store) EncodeFile() error {
+func (s *store) Save() error {
 	return ioutil.WriteFile(s.filename, s.encodeGob(), 0644)
 }
 
-func (s *Store) DecodeFile() error {
+func (s *store) Load() error {
 	var (
 		data []byte
 		err  error
@@ -130,7 +136,7 @@ func (s *Store) DecodeFile() error {
 	return s.decodeGob(data)
 }
 
-func (s *Store) Write(f func(items []Item) error) error {
+func (s *store) Update(f func(items []Item) error) error {
 	s.Lock()
 	defer s.Unlock()
 
@@ -138,14 +144,14 @@ func (s *Store) Write(f func(items []Item) error) error {
 		return err
 	}
 
-	if s.persist == WRITES {
-		return s.EncodeFile()
+	if s.persist == PERSIST_WRITES {
+		return s.Save()
 	}
 
 	return nil
 }
 
-func (s *Store) Read(f func(items []Item)) {
+func (s *store) View(f func(items []Item)) {
 	s.RLock()
 	defer s.RUnlock()
 
