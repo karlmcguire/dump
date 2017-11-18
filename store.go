@@ -1,3 +1,5 @@
+// Package store manages a list of items in memory with concurrency-safe
+// functions for accessing and manipulating items.
 package store
 
 import (
@@ -10,15 +12,26 @@ import (
 )
 
 const (
+	// PERSIST_MANUAL is the default disk-persistence setting. The user has to
+	// manually save the store to disk using the Save() function.
 	PERSIST_MANUAL = iota
+
+	// PERSIST_WRITES is a disk-persistence setting that will save the store
+	// to disk when either Add() or Update() is called.
 	PERSIST_WRITES
+
+	// PERSIST_INTERVAL is a disk-persistence setting that will save the store
+	// on a set interval (currently once every 60 seconds).
 	PERSIST_INTERVAL
 )
 
 var (
+	// ErrInvalidPersist is thrown when an invalid disk-persistence setting is
+	// provided when calling NewStore().
 	ErrInvalidPersist = errors.New("invalid persist type")
 )
 
+// Store represents a collection of items that persist on disk.
 type Store struct {
 	filename string
 	items    []Item
@@ -26,11 +39,25 @@ type Store struct {
 	mutex    sync.RWMutex
 }
 
+// Type is used to register types from outside packages so that they are
+// recognized when loading or saving the store.
 type Type struct {
-	Name  string
+	// Name is the name of this type. Usually it takes the form of
+	// "package.Name" -- so for a struct User{} in package main this field
+	// would be "main.User".
+	Name string
+	// Value is an empty struct of this type. For a struct User{}, this would
+	// be User{}.
 	Value interface{}
 }
 
+// NewStore is the primary constructor function for creating stores. The
+// provided filename is where the store will persist to disk (or read from
+// disk). The persist int is one of the store.PERSIST_ constants. The provided
+// types register the types that will be held in the store.
+//
+// NewStore will return an error if the persist parameter is not a valid
+// store.PERSIST_ constant.
 func NewStore(filename string, persist int, types ...Type) (*Store, error) {
 	for _, t := range types {
 		gob.RegisterName(t.Name, t.Value)
@@ -56,6 +83,8 @@ func NewStore(filename string, persist int, types ...Type) (*Store, error) {
 	return store, nil
 }
 
+// Item implements the json.Marshaler interface and is used so that the store
+// itself can implement the json.Marshaler function by aggregating all items.
 type Item interface {
 	MarshalJSON() ([]byte, error)
 }
@@ -75,6 +104,9 @@ func (s *Store) persistInterval() {
 	}
 }
 
+// Add appends an Item on the end of the store. It returns the id of the item
+// and an error if there was a problem persisting the store on the disk (if
+// PERSIST_WRITE is enabled).
 func (s *Store) Add(item Item) (int, error) {
 	s.mutex.Lock()
 
@@ -89,6 +121,8 @@ func (s *Store) Add(item Item) (int, error) {
 	return len(s.items) - 1, nil
 }
 
+// MarshalJSON returns the store as a JSON list. It returns an error if there
+// was an error marshaling one of the items.
 func (s *Store) MarshalJSON() ([]byte, error) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
@@ -129,10 +163,14 @@ func (s *Store) decodeGob(data []byte) error {
 	return gob.NewDecoder(bytes.NewBuffer(data)).Decode(&s.items)
 }
 
+// Save persists the store on disk using the filename provided when NewStore()
+// was called.
 func (s *Store) Save() error {
 	return ioutil.WriteFile(s.filename, s.encodeGob(), 0644)
 }
 
+// Load reads the store from disk using the filename provided when NewStore()
+// was called.
 func (s *Store) Load() error {
 	s.mutex.Lock()
 
@@ -150,6 +188,9 @@ func (s *Store) Load() error {
 	return s.decodeGob(data)
 }
 
+// Update is used to manipulate an item (or items) in the store. It returns
+// an error if there is an error saving the store (if PERSIST_WRITES is
+// enabled) or if there is an error inside the f function.
 func (s *Store) Update(f func(items []Item) error) error {
 	s.mutex.Lock()
 
@@ -167,6 +208,7 @@ func (s *Store) Update(f func(items []Item) error) error {
 	return nil
 }
 
+// View is used to read an item (or items) in the store.
 func (s *Store) View(f func(items []Item)) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
