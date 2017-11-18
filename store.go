@@ -14,7 +14,16 @@ type Store struct {
 	items    []Item
 }
 
-func NewStore(filename string) *Store {
+type Type struct {
+	Name  string
+	Value interface{}
+}
+
+func NewStore(filename string, types ...Type) *Store {
+	for _, t := range types {
+		gob.RegisterName(t.Name, t.Value)
+	}
+
 	return &Store{
 		filename: filename,
 		items:    make([]Item, 0),
