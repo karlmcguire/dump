@@ -12,3 +12,30 @@ Simple Go library for in-memory data storage with file persistence.
 ```go
 users, err := dump.NewDump("users.db", dump.PERSIST_WRITES, dump.Type{"main.User", User{}})
 ```
+
+### adding an item
+
+```go
+// id is assigned to the index location of the item after it is added
+id, err := users.Add(&User{Name: "karl"})
+```
+
+### getting an item
+
+```go
+err := users.View(func(items []dump.Item) error {
+    println(items[id].(*User).Name) // will output "karl"
+    
+    return nil
+})
+```
+
+### updating an item
+
+```go
+err := users.Update(func(items []dump.Item) error {
+    items[id].(*User).Name = "santa"
+
+    return nil
+})
+```
