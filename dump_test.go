@@ -1,4 +1,4 @@
-package store
+package dump
 
 import (
 	"bytes"
@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-func TestNewStore(t *testing.T) {
+func TestNewDump(t *testing.T) {
 	type params struct {
 		filename string
 		persist  int
@@ -53,11 +53,11 @@ func TestNewStore(t *testing.T) {
 
 	for _, v := range tests {
 		if v.types != nil {
-			if _, err = NewStore(v.filename, v.persist, v.types[0]); err != v.err {
+			if _, err = NewDump(v.filename, v.persist, v.types[0]); err != v.err {
 				t.Fatal("unexpected error")
 			}
 		} else {
-			if _, err = NewStore(v.filename, v.persist); err != v.err {
+			if _, err = NewDump(v.filename, v.persist); err != v.err {
 				t.Fatal("unexpected error")
 			}
 		}
@@ -83,7 +83,7 @@ func (b *Blob) MarshalJSON() ([]byte, error) {
 }
 
 func TestPersistInterval(t *testing.T) {
-	test, _ := NewStore("persist.db", PERSIST_INTERVAL, Type{"store.Blob", &Blob{}})
+	test, _ := NewDump("persist.db", PERSIST_INTERVAL, Type{"dump.Blob", &Blob{}})
 
 	_, _ = test.Add(&Blob{"meh"})
 
@@ -93,13 +93,13 @@ func TestPersistInterval(t *testing.T) {
 }
 
 func TestAdd(t *testing.T) {
-	test, _ := NewStore("test.db", PERSIST_WRITES, Type{"store.Blob", &Blob{}})
+	test, _ := NewDump("test.db", PERSIST_WRITES, Type{"dump.Blob", &Blob{}})
 
 	_, _ = test.Add(&Blob{"meh"})
 }
 
 func TestMarshalJSON(t *testing.T) {
-	test, _ := NewStore("test.db", PERSIST_WRITES, Type{"store.Blob", &Blob{}})
+	test, _ := NewDump("test.db", PERSIST_WRITES, Type{"dump.Blob", &Blob{}})
 
 	_, _ = test.Add(&Blob{"meh"})
 
@@ -117,7 +117,7 @@ func TestMarshalJSON(t *testing.T) {
 }
 
 func TestView(t *testing.T) {
-	test, _ := NewStore("test.db", PERSIST_WRITES, Type{"store.Blob", &Blob{}})
+	test, _ := NewDump("test.db", PERSIST_WRITES, Type{"dump.Blob", &Blob{}})
 
 	id, _ := test.Add(&Blob{"hi"})
 
@@ -134,7 +134,7 @@ func TestView(t *testing.T) {
 }
 
 func TestUpdate(t *testing.T) {
-	test, _ := NewStore("test.db", PERSIST_WRITES, Type{"store.Blob", &Blob{}})
+	test, _ := NewDump("test.db", PERSIST_WRITES, Type{"dump.Blob", &Blob{}})
 
 	id, _ := test.Add(&Blob{"hi"})
 
@@ -165,7 +165,7 @@ func TestUpdate(t *testing.T) {
 		t.Fatal("update didn't save")
 	}
 
-	another, _ := NewStore("test.db", PERSIST_MANUAL, Type{"store.Blob", &Blob{}})
+	another, _ := NewDump("test.db", PERSIST_MANUAL, Type{"dump.Blob", &Blob{}})
 	id, _ = another.Add(&Blob{"hi"})
 	err = another.Update(func(items []Item) error {
 		items[id].(*Blob).Data = "new"
@@ -177,7 +177,7 @@ func TestUpdate(t *testing.T) {
 }
 
 func TestLoad(t *testing.T) {
-	test, err := NewStore("test.db", PERSIST_WRITES, Type{"store.Blob", &Blob{}})
+	test, err := NewDump("test.db", PERSIST_WRITES, Type{"dump.Blob", &Blob{}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -187,7 +187,7 @@ func TestLoad(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	other, err := NewStore("test.db", PERSIST_MANUAL, Type{"store.Blob", &Blob{}})
+	other, err := NewDump("test.db", PERSIST_MANUAL, Type{"dump.Blob", &Blob{}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -205,7 +205,7 @@ func TestLoad(t *testing.T) {
 		t.Fatal("load error")
 	}
 
-	another, err := NewStore("missing.db", PERSIST_MANUAL, Type{"store.Blob", &Blob{}})
+	another, err := NewDump("missing.db", PERSIST_MANUAL, Type{"dump.Blob", &Blob{}})
 	if err != nil {
 		t.Fatal(err)
 	}
