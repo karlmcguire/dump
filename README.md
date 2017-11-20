@@ -21,7 +21,7 @@ You can manually save the dump by calling the `*Dump.Save()` function.
 
 ### on writes
 
-Using the `dump.PERSIST_WRITES` constant will cause the dump to save to disk when `*Dump.Add()` or `Dump.Update()` is called.
+Using the `dump.PERSIST_WRITES` constant will cause the dump to save to disk when `*Dump.Add()` or `*Dump.Update()` is called.
 
 ```go
 ... = dump.NewDump(..., dump.PERSIST_WRITES, ...)
@@ -55,7 +55,6 @@ id, err := users.Add(&User{Name: "karl"})
 ```go
 err := users.View(func(items []dump.Item) error {
     println(items[id].(*User).Name) // will output "karl"
-    
     return nil
 })
 ```
@@ -65,7 +64,6 @@ err := users.View(func(items []dump.Item) error {
 ```go
 err := users.Update(func(items []dump.Item) error {
     items[id].(*User).Name = "santa"
-
     return nil
 })
 ```
