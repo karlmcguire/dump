@@ -10,7 +10,7 @@ type Post struct {
 	Body string
 }
 
-// Post implements the json.Marshaler interface.
+// MarshalJSON allows Post to implement the json.Marshaler interface.
 func (p *Post) MarshalJSON() ([]byte, error) {
 	var buffer bytes.Buffer
 
