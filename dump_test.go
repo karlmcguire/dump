@@ -214,3 +214,45 @@ func TestLoad(t *testing.T) {
 		t.Fatal("didn't throw io error")
 	}
 }
+
+func TestMap(t *testing.T) {
+	test, err := NewDump("test.db", PERSIST_MANUAL, Type{"dump.Blob", &Blob{}})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err = test.Add(&Blob{"meh"}); err != nil {
+		t.Fatal("adding")
+	}
+
+	var errTest = errors.New("map")
+
+	if err = test.Map(func(item Item) error {
+		if item.(*Blob).Data == "meh" {
+			return errTest
+		}
+		return nil
+	}); err != nil {
+		if err != errTest {
+			t.Fatal("bad error")
+		}
+	}
+
+	if err = test.Map(func(item Item) error {
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	testTwo, err := NewDump("test.db", PERSIST_WRITES, Type{"dump.Blob", &Blob{}})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err = testTwo.Map(func(item Item) error {
+		item.(*Blob).Data = "nice"
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+}
