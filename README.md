@@ -5,6 +5,18 @@
 
 Simple Go library for in-memory data storage with file persistence.
 
+## features
+
+* No data races
+* Everything is stored in memory
+* Multiple ways to persist to disk
+* Small and fast
+
+## what is this for?
+
+I wanted a safe way to access Go slices from multiple goroutines and the ability to save those slices to the disk.
+This is useful for APIs (see [example](example/)) that require fast data access.
+
 ## persistence
 
 Dumps save to the disk (usually with a ".db" file extension).
