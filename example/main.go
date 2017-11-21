@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"strconv"
 
@@ -97,7 +98,10 @@ func main() {
 	}
 
 	if err = d.Load(); err != nil {
-		//panic(err)
+		// io.EOF just means it is empty
+		if err != io.EOF {
+			panic(err)
+		}
 	}
 
 	http.HandleFunc("/", index(d))

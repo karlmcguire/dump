@@ -17,34 +17,34 @@ func TestNewDump(t *testing.T) {
 	}
 
 	tests := []params{
-		params{
+		{
 			filename: "test.db",
 			persist:  PERSIST_WRITES,
 			types:    nil,
 			err:      ErrInvalidTypes,
 		},
-		params{
+		{
 			filename: "test.db",
 			persist:  999,
-			types:    []Type{Type{"meh", params{}}},
+			types:    []Type{{"meh", params{}}},
 			err:      ErrInvalidPersist,
 		},
-		params{
+		{
 			filename: "test.db",
 			persist:  PERSIST_WRITES,
-			types:    []Type{Type{"meh", params{}}},
+			types:    []Type{{"meh", params{}}},
 			err:      nil,
 		},
-		params{
+		{
 			filename: "",
 			persist:  PERSIST_WRITES,
-			types:    []Type{Type{"meh", params{}}},
+			types:    []Type{{"meh", params{}}},
 			err:      ErrInvalidFilename,
 		},
-		params{
+		{
 			filename: "test.db",
 			persist:  PERSIST_INTERVAL,
-			types:    []Type{Type{"meh", params{}}},
+			types:    []Type{{"meh", params{}}},
 			err:      nil,
 		},
 	}
