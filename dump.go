@@ -227,9 +227,5 @@ func (d *Dump) View(f func(items []Item) error) error {
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
 
-	if err := f(d.items); err != nil {
-		return err
-	}
-
-	return nil
+	return f(d.items)
 }

@@ -18,7 +18,6 @@ func index(d *dump.Dump) http.HandlerFunc {
 
 		if data, err = d.MarshalJSON(); err != nil {
 			panic(err)
-			return
 		}
 
 		w.Write(data)
@@ -39,7 +38,6 @@ func add(d *dump.Dump) http.HandlerFunc {
 			},
 		); err != nil {
 			panic(err)
-			return
 		}
 
 		w.Write([]byte(fmt.Sprintf("%d", id)))
@@ -51,7 +49,7 @@ func get(d *dump.Dump) http.HandlerFunc {
 		var (
 			bigId   int64
 			id      int
-			post    *Post
+			p       *Post
 			postOut []byte
 			err     error
 		)
@@ -62,7 +60,6 @@ func get(d *dump.Dump) http.HandlerFunc {
 			32,
 		); err != nil {
 			panic(err)
-			return
 		}
 
 		id = int(bigId)
@@ -71,16 +68,14 @@ func get(d *dump.Dump) http.HandlerFunc {
 			if id > len(items) {
 				return errors.New("woooops")
 			}
-			post = items[id].(*Post)
+			p = items[id].(*Post)
 			return nil
 		}); err != nil {
 			panic(err)
-			return
 		}
 
-		if postOut, err = post.MarshalJSON(); err != nil {
+		if postOut, err = p.MarshalJSON(); err != nil {
 			panic(err)
-			return
 		}
 
 		w.Write(postOut)
@@ -102,7 +97,7 @@ func main() {
 	}
 
 	if err = d.Load(); err != nil {
-		panic(err)
+		//panic(err)
 	}
 
 	http.HandleFunc("/", index(d))
