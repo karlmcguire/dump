@@ -122,15 +122,14 @@ func (d *Dump) persistInterval() {
 // PERSIST_WRITE is enabled).
 func (d *Dump) Add(item Item) (int, error) {
 	d.mutex.Lock()
+	defer d.mutex.Unlock()
 
 	d.items = append(d.items, item)
 
 	if d.persist == PERSIST_WRITES {
-		d.mutex.Unlock()
-		return len(d.items) - 1, d.Save()
+		return len(d.items) - 1, d.save()
 	}
 
-	d.mutex.Unlock()
 	return len(d.items) - 1, nil
 }
 
@@ -159,26 +158,26 @@ func (d *Dump) MarshalJSON() ([]byte, error) {
 }
 
 func (d *Dump) encodeGob() []byte {
-	d.mutex.RLock()
-	defer d.mutex.RUnlock()
-
 	var buffer bytes.Buffer
-
 	gob.NewEncoder(&buffer).Encode(d.items)
-
 	return buffer.Bytes()
 }
 
 func (d *Dump) decodeGob(data []byte) error {
-	d.mutex.Lock()
-	defer d.mutex.Unlock()
-
 	return gob.NewDecoder(bytes.NewBuffer(data)).Decode(&d.items)
 }
 
 // Save persists the dump on disk using the filename provided when NewDump()
 // was called.
 func (d *Dump) Save() error {
+	d.mutex.RLock()
+	defer d.mutex.RUnlock()
+
+	return d.save()
+}
+
+// no mutex
+func (d *Dump) save() error {
 	return ioutil.WriteFile(d.filename, d.encodeGob(), 0644)
 }
 
@@ -186,6 +185,7 @@ func (d *Dump) Save() error {
 // was called.
 func (d *Dump) Load() error {
 	d.mutex.Lock()
+	defer d.mutex.Unlock()
 
 	var (
 		data []byte
@@ -193,11 +193,9 @@ func (d *Dump) Load() error {
 	)
 
 	if data, err = ioutil.ReadFile(d.filename); err != nil {
-		d.mutex.Unlock()
 		return err
 	}
 
-	d.mutex.Unlock()
 	return d.decodeGob(data)
 }
 
@@ -206,18 +204,37 @@ func (d *Dump) Load() error {
 // enabled) or if there is an error inside the f function.
 func (d *Dump) Update(f func(items []Item) error) error {
 	d.mutex.Lock()
+	defer d.mutex.Unlock()
 
 	if err := f(d.items); err != nil {
-		d.mutex.Unlock()
 		return err
 	}
 
 	if d.persist == PERSIST_WRITES {
-		d.mutex.Unlock()
-		return d.Save()
+		return d.save()
 	}
 
-	d.mutex.Unlock()
+	return nil
+}
+
+// Map applies the function f to each item in the dump. It returns an error if
+// f returns an error for one of the items. If PERSIST_WRITES is enabled Map
+// might also return an error if there is an error saving the dump to disk.
+func (d *Dump) Map(f func(item Item) error) error {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+
+	var err error
+	for _, i := range d.items {
+		if err = f(i); err != nil {
+			return err
+		}
+	}
+
+	if d.persist == PERSIST_WRITES {
+		return d.save()
+	}
+
 	return nil
 }
 
